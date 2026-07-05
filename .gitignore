@@ -1,0 +1,25 @@
+# Build outputs
+build/
+cmake-build-*/
+out/
+
+# Qt Creator / IDE local files
+.qtcreator/
+*.user
+*.user.*
+CMakeUserPresets.json
+
+# Local agent/tooling state
+.agents/
+.codex/
+
+# Runtime artifacts
+*.log
+*.tmp
+*.bak
+
+# Large model files should be managed explicitly.
+*.onnx
+*.engine
+*.pt
+*.pth
