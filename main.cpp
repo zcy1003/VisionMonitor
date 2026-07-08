@@ -1,6 +1,8 @@
 ﻿#include "mainwindow.h"
 
 #include <QApplication>
+#include <QMetaObject>
+#include <QTimer>
 #include <opencv2/opencv.hpp>
 
 #include "visiondetector.h"
@@ -20,7 +22,26 @@ int main(int argc, char *argv[])
     qRegisterMetaType<cv::Mat>("cv::Mat");
     qRegisterMetaType<QVector<DetectionResult>>("QVector<DetectionResult>");
 
+    // Keep MainWindow alive until the event loop exits. Deleting the main
+    // widget inside close-event processing can leave platform events and Qt
+    // child cleanup interleaved in Debug builds.
     MainWindow w;
     w.show();
+    const QStringList arguments = QCoreApplication::arguments();
+    if (arguments.contains("--auto-start")) {
+        // Hidden smoke-test switch for validating worker-thread shutdown.
+        QTimer::singleShot(500, &w, [&w]() {
+            QMetaObject::invokeMethod(&w, "onBtnStartClicked", Qt::QueuedConnection);
+        });
+    }
+    const int autoExitIndex = arguments.indexOf("--auto-exit-ms");
+    if (autoExitIndex >= 0 && autoExitIndex + 1 < arguments.size()) {
+        bool ok = false;
+        const int delayMs = arguments.at(autoExitIndex + 1).toInt(&ok);
+        if (ok && delayMs > 0) {
+            // Hidden smoke-test switch used to verify shutdown without manual UI.
+            QTimer::singleShot(delayMs, &w, &QWidget::close);
+        }
+    }
     return a.exec();
 }

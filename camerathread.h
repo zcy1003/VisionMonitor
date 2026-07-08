@@ -35,8 +35,13 @@ signals:
     void frameReady(cv::Mat frame, QVector<DetectionResult> results, double inferenceMs);
     // 出错时(摄像头打不开)发出
     void cameraError(QString message);
+    // 摄像头真正读到首帧后发出，用于在界面日志里记录实际使用的后端。
+    void cameraOpened(QString message);
 
 private:
+    // 逐个尝试 Windows 摄像头后端，并用实际读帧结果判断后端是否可用。
+    bool openCamera(cv::VideoCapture *capture, QString *message);
+
     std::atomic_bool m_running;
     std::atomic_bool m_detectionEnabled;
     VisionDetector m_detector;

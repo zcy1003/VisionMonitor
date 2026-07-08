@@ -13,10 +13,20 @@ CMakeUserPresets.json
 .agents/
 .codex/
 
+# Local Python environment and YOLO export settings are machine-specific.
+.venv-yolo/
+.ultralytics/
+Ultralytics/
+__pycache__/
+*.pyc
+
 # Runtime artifacts
 *.log
 *.tmp
 *.bak
+*.db
+*.sqlite
+*.sqlite3
 
 # Large model files should be managed explicitly.
 *.onnx

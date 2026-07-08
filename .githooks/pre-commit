@@ -1,0 +1,6 @@
+#!/bin/sh
+
+# Run the comment policy against staged files before a commit is created.
+# Git for Windows executes hooks through sh, so call PowerShell explicitly.
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/check_comment_policy.ps1 -Mode staged
+exit $?

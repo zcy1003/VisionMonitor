@@ -1,24 +1,124 @@
 # VisionMonitor
 
-`VisionMonitor` 是一个面向求职作品集的工业视觉质检系统示例，技术栈为 Qt Widgets + C++17 + OpenCV。当前版本重点覆盖郑州 C++/Qt 岗位常见关键词：上位机界面、多线程采集、OpenCV 图像处理、YOLOv8 ONNX 推理、检测结果可视化、设备状态模拟和质检统计。
+`VisionMonitor` 是一个面向求职展示和学习的 Qt + C++ + OpenCV 工业视觉质检项目。项目目标是把常见上位机能力组合到一个可演示的桌面端程序中：实时图像采集、OpenCV/ONNX 检测、设备通信、SQLite 追溯、报警、曲线、报表和自动检测/故障报告。
 
-## 已实现功能
+## 当前状态
 
-- Qt Widgets 质检工作站界面
-- 摄像头实时采集线程
-- 模拟设备数据线程：温度、压力、转速
-- OpenCV 规则检测：未加载模型时也可以演示缺陷框选
-- YOLOv8 ONNX 模型加载与推理
-- OK/NG 判定、缺陷数量、推理耗时、FPS、良品率统计
-- 离线图片检测
-- 当前检测结果图保存
-- 检测日志
+已完成主要业务功能，正在补齐 Windows/Linux 双平台构建和部署细节。当前代码已将 OpenCV 路径、摄像头后端和运行时部署按平台拆分，Windows 本机可直接构建运行；Linux 侧需要准备 Qt6、OpenCV 和摄像头权限后编译验证。
 
-## 模型使用方式
+## 功能清单
 
-程序可以不加载模型运行，此时使用传统 OpenCV 阈值/轮廓规则检测亮斑、黑斑类表面异常。
+- Qt Widgets 桌面端质检工作站界面
+- 摄像头实时采集线程，UI 主线程和采集线程解耦
+- Windows 摄像头后端优先 DirectShow，Linux 优先 V4L2，并用非空帧验证后端可用
+- OpenCV 规则检测，未加载模型时也可演示缺陷检测流程
+- YOLOv8 ONNX 模型加载、推理、置信度过滤、NMS 和检测框绘制
+- 离线图片检测、实时摄像头检测、当前结果截图保存
+- 串口、TCP Client、Modbus TCP、Modbus RTU 和模拟数据源
+- 温度、压力、转速状态显示和实时曲线窗口
+- 阈值报警、报警确认、报警历史查询
+- SQLite 检测记录、报警记录、NG 图片归档和历史追溯
+- CSV 报表导出
+- 基于本地统计规则的自动检测/故障报告生成
+- `CameraProbe` 摄像头后端诊断工具
 
-如果要使用 YOLOv8：
+## 技术栈
+
+- C++17
+- Qt 6 Widgets / Network / SerialPort / Sql
+- OpenCV / OpenCV DNN
+- SQLite
+- CMake
+
+## 目录结构
+
+```text
+VisionMonitor/
+  CMakeLists.txt
+  main.cpp
+  mainwindow.h/.cpp        # 主界面、业务流程、报警、曲线、报表、AI报告
+  camerathread.h/.cpp      # 摄像头采集线程和实时检测
+  serialthread.h/.cpp      # 串口/TCP/Modbus/模拟数据通信线程
+  visiondetector.h/.cpp    # OpenCV 规则检测和 YOLOv8 ONNX 推理
+  databasemanager.h/.cpp   # SQLite 检测记录、报警记录和图片归档
+  models/                  # 类别文件和模型说明
+  tools/
+    camera_probe.cpp       # 摄像头后端诊断工具
+    check_comment_policy.ps1
+    install_git_hooks.ps1
+    tcp_sensor_server.py
+    modbus_tcp_server.py
+```
+
+## Windows 构建
+
+环境建议：
+
+- Windows 10/11
+- Visual Studio 2022 或更新版本的 MSVC x64 工具链
+- Qt 6.5+
+- OpenCV 4.x
+- CMake 3.19+
+
+如果 OpenCV 安装在 `D:/OpenCV/opencv/build`，CMake 会在 Windows 上自动作为兜底路径使用。其他路径建议显式传入：
+
+```powershell
+cmake -S . -B build/windows-msvc `
+  -G "NMake Makefiles" `
+  -DQt6_DIR="D:/Qt/6.11.1/msvc2022_64/lib/cmake/Qt6" `
+  -DVISIONMONITOR_OPENCV_DIR="D:/OpenCV/opencv/build"
+
+cmake --build build/windows-msvc --target VisionMonitor
+```
+
+如果使用 Qt Creator，直接打开 `CMakeLists.txt`，确认 Kit 指向 MSVC x64、Qt6 和 OpenCV 后构建即可。
+
+## Linux 构建
+
+Linux 侧推荐先安装系统依赖：
+
+```bash
+sudo apt update
+sudo apt install -y build-essential cmake qt6-base-dev qt6-serialport-dev libopencv-dev
+```
+
+然后构建：
+
+```bash
+cmake -S . -B build/linux -DCMAKE_BUILD_TYPE=Release
+cmake --build build/linux --target VisionMonitor
+```
+
+如果 OpenCV 不是系统包安装，可以传入 OpenCV 的 CMake 包路径：
+
+```bash
+cmake -S . -B build/linux \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DVISIONMONITOR_OPENCV_DIR=/opt/opencv/lib/cmake/opencv4
+```
+
+Linux 使用摄像头前需要确认当前用户有 `/dev/video*` 访问权限。常见做法是把用户加入 `video` 组，重新登录后生效：
+
+```bash
+sudo usermod -aG video $USER
+```
+
+## 摄像头诊断
+
+主程序不会只依赖 `isOpened()` 判断摄像头可用，而是要求实际读到非空帧。可以先构建并运行诊断工具：
+
+```bash
+cmake --build build/linux --target CameraProbe
+./build/linux/CameraProbe
+```
+
+Windows 下 `CameraProbe` 会依次测试 DirectShow、Media Foundation 和默认后端；Linux 下会测试 V4L2 和默认后端。输出中同时出现 `open=yes` 和 `frame=yes` 才说明该后端可用于主程序。
+
+## 模型使用
+
+程序可以不加载模型运行，此时使用传统 OpenCV 规则检测亮斑、暗斑等简单表面异常，方便没有训练模型时演示完整流程。
+
+使用 YOLOv8 ONNX：
 
 1. 准备 `.onnx` 模型，例如 `yolov8n.onnx` 或自己训练的工业缺陷模型。
 2. 点击界面中的 `加载 YOLOv8 ONNX`。
@@ -33,87 +133,52 @@ crack
 missing
 ```
 
-## 项目结构
+当前 ONNX 推理走 OpenCV DNN CPU 路径。实时摄像头检测时，YOLO 会按间隔帧运行，跳过帧复用上一帧检测框，用来降低 CPU 推理导致的画面卡顿。
 
-```text
-VisionMonitor/
-  CMakeLists.txt
-  main.cpp
-  mainwindow.h/.cpp        # 主界面、统计、模型加载、图片测试
-  camerathread.h/.cpp      # 摄像头采集与检测线程
-  serialthread.h/.cpp      # 模拟设备数据
-  visiondetector.h/.cpp    # OpenCV 规则检测 + YOLOv8 ONNX 推理
-```
+## 设备通信
+
+界面右侧可以选择通信方式：
+
+- 模拟数据：不依赖外部设备，适合演示报警、曲线和报表。
+- 真实串口：读取换行分隔的文本数据。
+- TCP 客户端：连接外部传感器服务或 `tools/tcp_sensor_server.py`。
+- Modbus TCP：按配置的站号和起始寄存器读取设备数据。
+- Modbus RTU：通过串口读取 Modbus 寄存器。
+
+当前约定的传感器数据为温度、压力、转速三项。真实项目落地时，应根据设备手册继续配置寄存器地址、倍率、字节序和异常重连策略。
+
+## 数据与报表
+
+程序启动后会初始化 SQLite 数据库，保存：
+
+- 检测时间、来源、OK/NG、缺陷数量、标签、最高置信度、推理耗时和模型名
+- 报警时间、等级、指标、当前值、阈值、确认状态
+- 普通截图和 NG 归档图片路径
+
+历史记录窗口用于追溯检测结果，报警窗口用于确认和查看报警。CSV 导出会把检测历史和报警历史写入一个 UTF-8 报表文件。
+
+## 自动检测/故障报告
+
+当前报告生成是本地规则版：程序读取 SQLite 中的检测记录和报警记录，统计 OK/NG、缺陷分布、报警分布，并生成原因推断和处理建议。后续如果要做成真正的大模型报告，可以把 `MainWindow::buildAiReport()` 替换为大模型 API 调用，同时保留本地统计结果作为输入上下文。
 
 ## 简历描述建议
 
 可以写成：
 
-> 基于 Qt/C++、OpenCV 和 YOLOv8 ONNX 开发工业视觉质检系统，采用摄像头采集线程与 UI 主线程解耦，实现实时图像采集、目标/缺陷检测、OK/NG 判定、缺陷框可视化、推理耗时/FPS/良品率统计、离线图片检测和检测结果保存；未加载模型时支持传统 OpenCV 规则检测，便于现场调试和算法对比。
+> 基于 Qt/C++、OpenCV 和 YOLOv8 ONNX 开发工业视觉质检上位机，采用采集线程、通信线程与 UI 主线程解耦，实现实时图像采集、OpenCV/ONNX 缺陷检测、OK/NG 判定、串口/TCP/Modbus 设备通信、SQLite 质量追溯、报警管理、实时曲线、CSV 报表和自动检测/故障报告生成；针对 Windows DirectShow/MSMF 和 Linux V4L2 摄像头后端差异做了跨平台适配。
 
-## 1-2 个月学习路线
+## 后续优化方向
 
-### 第 1 周：把 Qt 工程基础补扎实
+- 在真实 Linux 环境完成编译、摄像头和串口验证，并补充截图。
+- 将通信寄存器、倍率、阈值、模型路径等参数做成配置文件或设置界面。
+- 增加 ONNX 模型输入/输出格式说明，方便替换不同 YOLO 导出版本。
+- 接入大模型 API，把本地规则报告升级为更自然的故障分析报告。
+- 补充演示视频、项目架构图和面试讲解材料。
 
-- CMake 构建 Qt6 项目
-- Qt 信号槽、跨线程通信、对象生命周期
-- QLabel 显示 OpenCV 图像
-- QThread 采集摄像头并安全停止
+## 开发规范
 
-阶段产出：能讲清楚本项目里 `CameraThread`、`SerialThread` 和主线程 UI 的关系。
+本项目要求新增或修改 C++、CMake、脚本代码时同步补充必要注释，尤其是平台兼容、线程安全、资源释放、图像算法、模型推理、NMS 和坐标换算等位置。提交前建议运行：
 
-### 第 2 周：OpenCV 工业视觉基础
-
-- 灰度化、滤波、阈值、形态学
-- 轮廓检测、外接矩形、面积过滤
-- 图像坐标系、ROI、检测结果绘制
-- 离线图片检测流程
-
-阶段产出：能不用深度学习，完成黑点、亮点、划痕等简单缺陷检测 demo。
-
-### 第 3 周：YOLOv8 推理部署
-
-- 了解目标检测输入/输出格式
-- 训练或获取一个缺陷检测模型
-- 导出 ONNX
-- 使用 OpenCV DNN 加载 ONNX
-- 实现置信度过滤、NMS、类别名显示
-
-阶段产出：能在本项目中加载 `.onnx` 模型，并解释从模型输出到检测框的解析过程。
-
-### 第 4 周：上位机工程化
-
-- 检测统计：OK/NG、良品率、检测耗时
-- 日志记录
-- 截图保存
-- 参数配置
-- 异常处理：摄像头打开失败、模型加载失败、空图像
-
-阶段产出：项目从算法 demo 变成可演示的工业质检工作站。
-
-### 第 5-6 周：贴近郑州岗位需求扩展
-
-- 串口真实读取或 Modbus RTU/TCP
-- SQLite 保存检测记录
-- CSV/Excel 报表导出
-- Linux 下编译运行
-- 打包部署
-
-阶段产出：简历关键词覆盖 Qt、C++、OpenCV、YOLOv8、上位机、串口/Modbus、SQLite、Linux。
-
-### 第 7-8 周：面试准备
-
-- 准备 3 分钟项目介绍
-- 准备 5 个技术难点：跨线程图像传输、Mat/QImage 转换、YOLO 输出解析、NMS、检测耗时优化
-- 准备项目截图和演示视频
-- 准备代码仓库 README
-
-## 下一步建议
-
-优先继续补三项：
-
-1. SQLite 检测记录表
-2. 串口/Modbus 真实通信
-3. Linux 编译说明
-
-这三项和郑州 C++/Qt 上位机岗位的匹配度最高。
+```powershell
+powershell -ExecutionPolicy Bypass -File tools/check_comment_policy.ps1
+```

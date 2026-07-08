@@ -31,6 +31,8 @@ public:
     cv::Mat processFrame(const cv::Mat &frame,
                          QVector<DetectionResult> *results,
                          double *inferenceMs = nullptr);
+    // Draw cached detection results without running another model inference.
+    cv::Mat annotateFrame(const cv::Mat &frame, const QVector<DetectionResult> &results) const;
 
 private:
     QVector<DetectionResult> runYolo(const cv::Mat &frame, double *inferenceMs);

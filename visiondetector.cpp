@@ -88,6 +88,19 @@ cv::Mat VisionDetector::processFrame(const cv::Mat &frame,
     return annotated;
 }
 
+cv::Mat VisionDetector::annotateFrame(const cv::Mat &frame, const QVector<DetectionResult> &results) const
+{
+    if (frame.empty()) {
+        return {};
+    }
+
+    // Reuse cached YOLO boxes on skipped frames so display FPS stays higher
+    // while the user still sees the latest detection result.
+    cv::Mat annotated = frame.clone();
+    drawResults(annotated, results);
+    return annotated;
+}
+
 QVector<DetectionResult> VisionDetector::runYolo(const cv::Mat &frame, double *inferenceMs)
 {
     QVector<DetectionResult> results;
