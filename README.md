@@ -79,20 +79,46 @@ Linux 侧推荐先安装系统依赖：
 
 ```bash
 sudo apt update
-sudo apt install -y build-essential cmake qt6-base-dev qt6-serialport-dev libopencv-dev
+sudo apt install -y \
+  build-essential \
+  cmake \
+  ninja-build \
+  qt6-base-dev \
+  qt6-base-dev-tools \
+  qt6-tools-dev \
+  qt6-tools-dev-tools \
+  libqt6serialport6-dev \
+  libqt6sql6-sqlite \
+  libopencv-dev \
+  v4l-utils \
+  libgl1-mesa-dev \
+  libglu1-mesa-dev \
+  mesa-common-dev \
+  libxkbcommon-dev \
+  libxkbcommon-x11-dev \
+  libvulkan-dev
 ```
+
+Ubuntu 22.04 默认 Qt 版本通常是 6.2.4。项目 CMake 已兼容 Qt 6.2，
+但系统必须安装完整的 Qt Widgets/Gui 开发依赖。若 CMake 提示
+`WrapOpenGL`、`Qt6Gui`、`Qt6Widgets`、`XKB` 或 `Vulkan_INCLUDE_DIR`
+缺失，通常就是上面这些 Mesa/OpenGL、XKB 或 Vulkan 开发包没有装完整。
 
 然后构建：
 
 ```bash
-cmake -S . -B build/linux -DCMAKE_BUILD_TYPE=Release
-cmake --build build/linux --target VisionMonitor
+rm -rf build/linux-release
+cmake -S . -B build/linux-release \
+  -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release
+cmake --build build/linux-release --target VisionMonitor CameraProbe
 ```
 
 如果 OpenCV 不是系统包安装，可以传入 OpenCV 的 CMake 包路径：
 
 ```bash
-cmake -S . -B build/linux \
+cmake -S . -B build/linux-release \
+  -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
   -DVISIONMONITOR_OPENCV_DIR=/opt/opencv/lib/cmake/opencv4
 ```
@@ -108,8 +134,8 @@ sudo usermod -aG video $USER
 主程序不会只依赖 `isOpened()` 判断摄像头可用，而是要求实际读到非空帧。可以先构建并运行诊断工具：
 
 ```bash
-cmake --build build/linux --target CameraProbe
-./build/linux/CameraProbe
+cmake --build build/linux-release --target CameraProbe
+./build/linux-release/CameraProbe
 ```
 
 Windows 下 `CameraProbe` 会依次测试 DirectShow、Media Foundation 和默认后端；Linux 下会测试 V4L2 和默认后端。输出中同时出现 `open=yes` 和 `frame=yes` 才说明该后端可用于主程序。

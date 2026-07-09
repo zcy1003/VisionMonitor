@@ -32,8 +32,7 @@ else()
     set(CMAKE_AUTORCC ON)
 endif()
 
-qt_add_executable(VisionMonitor
-    WIN32 MACOSX_BUNDLE
+set(VISIONMONITOR_SOURCES
     main.cpp
     mainwindow.cpp
     mainwindow.h
@@ -46,6 +45,20 @@ qt_add_executable(VisionMonitor
     visiondetector.cpp
     visiondetector.h
 )
+
+if (COMMAND qt_add_executable)
+    qt_add_executable(VisionMonitor
+        WIN32 MACOSX_BUNDLE
+        ${VISIONMONITOR_SOURCES}
+    )
+else()
+    # 旧版 Qt/CMake 环境如果没有 qt_add_executable，就回退到 CMake
+    # 原生命令；上面的 AUTOMOC/AUTOUIC/AUTORCC 已经保证 Qt 元对象生成。
+    add_executable(VisionMonitor
+        WIN32 MACOSX_BUNDLE
+        ${VISIONMONITOR_SOURCES}
+    )
+endif()
 
 # CameraProbe 用于独立验证当前平台的 OpenCV 摄像头后端是否能返回
 # 非空帧，避免主程序只凭 isOpened() 误判摄像头可用。
@@ -108,9 +121,14 @@ install(TARGETS VisionMonitor
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
-qt_generate_deploy_app_script(
-    TARGET VisionMonitor
-    OUTPUT_SCRIPT deploy_script
-    NO_UNSUPPORTED_PLATFORM_ERROR
-)
-install(SCRIPT ${deploy_script})
+if (COMMAND qt_generate_deploy_app_script)
+    qt_generate_deploy_app_script(
+        TARGET VisionMonitor
+        OUTPUT_SCRIPT deploy_script
+        NO_UNSUPPORTED_PLATFORM_ERROR
+    )
+    install(SCRIPT ${deploy_script})
+else()
+    # Qt 6.2 没有 qt_generate_deploy_app_script。Linux 上先依赖系统包
+    # 提供 Qt/OpenCV 运行库，后续如需 AppImage 再单独接 linuxdeployqt。
+endif()
