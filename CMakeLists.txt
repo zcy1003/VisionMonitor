@@ -6,7 +6,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(GNUInstallDirs)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Network SerialPort Sql)
+# Ubuntu 22.04 默认仓库提供 Qt 6.2.4；本项目使用的 Widgets、
+# Network、SerialPort 和 Sql API 不依赖 Qt 6.5 新特性，因此最低
+# 版本放宽到 6.2，方便 Linux 虚拟机直接用系统包构建。
+find_package(Qt6 6.2 REQUIRED COMPONENTS Core Widgets Network SerialPort Sql)
 
 # OpenCV 的安装路径在 Windows/Linux 上差异较大，因此只把本机
 # D:/OpenCV 作为 Windows 兜底值；Linux 或其他机器应通过
