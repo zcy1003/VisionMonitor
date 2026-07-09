@@ -22,7 +22,15 @@ elseif (WIN32 AND NOT OpenCV_DIR AND EXISTS "D:/OpenCV/opencv/build/OpenCVConfig
 endif()
 find_package(OpenCV REQUIRED)
 
-qt_standard_project_setup()
+if (COMMAND qt_standard_project_setup)
+    qt_standard_project_setup()
+else()
+    # Ubuntu 22.04 的 Qt 6.2 CMake 模块没有 qt_standard_project_setup，
+    # 手动启用 Qt 元对象相关开关，保证信号槽和资源处理仍可正常生成。
+    set(CMAKE_AUTOMOC ON)
+    set(CMAKE_AUTOUIC ON)
+    set(CMAKE_AUTORCC ON)
+endif()
 
 qt_add_executable(VisionMonitor
     WIN32 MACOSX_BUNDLE
