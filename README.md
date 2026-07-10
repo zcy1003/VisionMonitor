@@ -161,6 +161,16 @@ missing
 
 当前 ONNX 推理走 OpenCV DNN CPU 路径。实时摄像头检测时，YOLO 会按间隔帧运行，跳过帧复用上一帧检测框，用来降低 CPU 推理导致的画面卡顿。
 
+Ubuntu 22.04 默认仓库中的 OpenCV 通常是 4.5.4，这个版本的 DNN 模块对新版本 Ultralytics 导出的 YOLOv8 ONNX 兼容性有限。如果加载模型时提示 `shape_utils.hpp` 或 `OpenCV DNN 无法执行该 ONNX`，优先重新导出静态模型：
+
+```bash
+cd ~/VisionMonitor
+yolo export model=yolov8n.pt format=onnx imgsz=640 opset=12 dynamic=False simplify=False nms=False
+mv yolov8n.onnx models/yolov8n-opencv454.onnx
+```
+
+如果静态导出后仍然失败，说明当前系统的 C++ OpenCV 运行库太旧，需要升级项目链接的 OpenCV，而不是安装 `opencv-python`。`opencv-python` 只影响 Python 环境，不会改变本 Qt/C++ 程序链接到的 `libopencv-dev`。
+
 ## 设备通信
 
 界面右侧可以选择通信方式：

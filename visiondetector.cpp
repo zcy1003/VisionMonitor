@@ -68,7 +68,11 @@ bool VisionDetector::loadYoloModel(const QString &modelPath, QString *message)
         m_net = cv::dnn::Net();
         m_modelName.clear();
         if (message) {
-            *message = QString("模型加载失败：OpenCV DNN 无法执行该 ONNX。%1").arg(e.what());
+            *message = QString("模型加载失败：OpenCV DNN 无法执行该 ONNX。"
+                               "Ubuntu 22.04 默认 OpenCV 4.5.4 对新导出的 YOLO ONNX 兼容性有限，"
+                               "请尝试用 imgsz=640、dynamic=False、simplify=False 重新导出，"
+                               "或升级项目链接的 C++ OpenCV。%1")
+                           .arg(e.what());
         }
         return false;
     }
