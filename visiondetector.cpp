@@ -26,16 +26,37 @@ VisionDetector::VisionDetector()
 bool VisionDetector::loadYoloModel(const QString &modelPath, QString *message)
 {
     try {
-        m_net = cv::dnn::readNetFromONNX(modelPath.toStdString());
-        if (m_net.empty()) {
+        cv::dnn::Net candidateNet = cv::dnn::readNetFromONNX(modelPath.toStdString());
+        if (candidateNet.empty()) {
             if (message) {
                 *message = "模型加载失败：OpenCV 返回空网络。";
             }
             return false;
         }
 
-        m_net.setPreferableBackend(cv::dnn::DNN_BACKEND_OPENCV);
-        m_net.setPreferableTarget(cv::dnn::DNN_TARGET_CPU);
+        candidateNet.setPreferableBackend(cv::dnn::DNN_BACKEND_OPENCV);
+        candidateNet.setPreferableTarget(cv::dnn::DNN_TARGET_CPU);
+
+        // readNetFromONNX 只能证明模型结构被解析，旧版 OpenCV DNN 仍可能在 forward
+        // 阶段因算子或动态形状不兼容而崩溃；加载时预热一次可以把问题提前暴露给 UI。
+        const cv::Mat warmupFrame = cv::Mat::zeros(m_inputSize, CV_8UC3);
+        const cv::Mat warmupBlob = cv::dnn::blobFromImage(warmupFrame,
+                                                          1.0 / 255.0,
+                                                          m_inputSize,
+                                                          cv::Scalar(),
+                                                          true,
+                                                          false);
+        candidateNet.setInput(warmupBlob);
+        std::vector<cv::Mat> warmupOutputs;
+        candidateNet.forward(warmupOutputs, candidateNet.getUnconnectedOutLayersNames());
+        if (warmupOutputs.empty()) {
+            if (message) {
+                *message = "模型加载失败：OpenCV DNN 预热推理没有输出。";
+            }
+            return false;
+        }
+
+        m_net = candidateNet;
         m_modelName = QFileInfo(modelPath).fileName();
         loadClassNames(modelPath);
 
@@ -44,8 +65,10 @@ bool VisionDetector::loadYoloModel(const QString &modelPath, QString *message)
         }
         return true;
     } catch (const cv::Exception &e) {
+        m_net = cv::dnn::Net();
+        m_modelName.clear();
         if (message) {
-            *message = QString("模型加载失败：%1").arg(e.what());
+            *message = QString("模型加载失败：OpenCV DNN 无法执行该 ONNX。%1").arg(e.what());
         }
         return false;
     }
@@ -75,9 +98,18 @@ cv::Mat VisionDetector::processFrame(const cv::Mat &frame,
         return {};
     }
 
-    QVector<DetectionResult> detections = hasYoloModel()
-        ? runYolo(frame, inferenceMs)
-        : runRuleBasedInspection(frame, inferenceMs);
+    QVector<DetectionResult> detections;
+    try {
+        detections = hasYoloModel()
+            ? runYolo(frame, inferenceMs)
+            : runRuleBasedInspection(frame, inferenceMs);
+    } catch (const cv::Exception &) {
+        // 摄像头线程里不能让 OpenCV 异常越过 Qt 线程边界，否则 Linux 下会直接终止进程；
+        // 禁用当前模型并回退规则检测，保证演示程序还能继续运行和排错。
+        m_net = cv::dnn::Net();
+        m_modelName.clear();
+        detections = runRuleBasedInspection(frame, inferenceMs);
+    }
 
     cv::Mat annotated = frame.clone();
     drawResults(annotated, detections);
